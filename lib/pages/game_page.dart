@@ -6,7 +6,7 @@ class GamePage extends StatefulWidget {
   _GamePageState createState() => _GamePageState();
 }
 
-class _GamePageState extends State<GamePage> {
+class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin {
   final List<String> cardValues = ['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K'];
   final List<String> suits = ['♠', '♥', '♦', '♣'];
   final Map<String, String> cardDescriptions = {
@@ -31,10 +31,26 @@ class _GamePageState extends State<GamePage> {
   int kingsDrawn = 0;
   bool isGameOver = false;
 
+  late AnimationController _animationController;
+  late Animation<double> _scaleAnimation;
+  
   @override
   void initState() {
     super.initState();
     _initializeDeck();
+    _animationController = AnimationController(
+      duration: Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   void _initializeDeck() {
@@ -50,87 +66,197 @@ class _GamePageState extends State<GamePage> {
   void _drawCard() {
     if (isGameOver) return;
     
-    if (deck.isEmpty) {
-      setState(() {
-        currentCard = 'No cards left! Reshuffling...';
-        currentDescription = '';
-      });
-      _initializeDeck();
-      return;
-    }
-
-    setState(() {
-      currentCard = deck.removeLast();
-      currentDescription = cardDescriptions[currentCard[0]] ?? '';
-      
-      if (currentCard[0] == 'K') {
-        kingsDrawn++;
-        if (kingsDrawn == 4) {
-          isGameOver = true;
-          currentDescription = 'GAME OVER! Down the Kings Cup!';
-        }
+    _animationController.forward().then((_) {
+      if (deck.isEmpty) {
+        setState(() {
+          currentCard = 'No cards left! Reshuffling...';
+          currentDescription = '';
+        });
+        _initializeDeck();
+      } else {
+        setState(() {
+          currentCard = deck.removeLast();
+          currentDescription = cardDescriptions[currentCard.startsWith('10') ? '10' : currentCard[0]] ?? '';
+          
+          if (currentCard[0] == 'K') {
+            kingsDrawn++;
+            if (kingsDrawn == 4) {
+              isGameOver = true;
+              currentDescription = 'GAME OVER! Down the Kings Cup!';
+            }
+          }
+        });
       }
+      _animationController.reverse();
     });
+  }
+
+  Color _getCardColor() {
+    if (currentCard.contains('♥') || currentCard.contains('♦')) {
+      return Colors.red;
+    }
+    return Colors.black;
   }
 
   @override
   Widget build(BuildContext context) {
+    double screenHeight = MediaQuery.of(context).size.height;
+    double yellowHeight = (kingsDrawn / 4) * screenHeight;
+
     return Scaffold(
       appBar: AppBar(
         title: Text('Babelas'),
         centerTitle: true,
+        elevation: 0,
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(height: 40),
-                Text(
-                  currentCard,
-                  style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                SizedBox(height: 20),
-                if (currentDescription.isNotEmpty)
-                  Container(
-                    padding: EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      currentDescription,
-                      style: TextStyle(fontSize: 16),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                SizedBox(height: 20),
-                if (!isGameOver)
-                  ElevatedButton(
-                    onPressed: _drawCard,
-                    child: Text('Draw Card'),
-                  )
-                else
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                    },
-                    child: Text('Back to Main Menu'),
-                  ),
-                SizedBox(height: 10),
-                if (!isGameOver)
-                  Text(
-                    '${4 - kingsDrawn} Kings remaining',
-                    style: TextStyle(fontSize: 16),
-                  ),
-              ],
+      body: Stack(
+        children: [
+          // Background gradient
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.orange.shade50,
+                  Colors.white,
+                ],
+              ),
             ),
           ),
-        ),
+          // Kings progress indicator
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            child: AnimatedContainer(
+              duration: Duration(milliseconds: 500),
+              height: yellowHeight,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.orange.withOpacity(0.1), Colors.orange.shade200],
+                ),
+              ),
+            ),
+          ),
+          // Main content
+          Center(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(height: 20),
+                    // Card display
+                    ScaleTransition(
+                      scale: _scaleAnimation,
+                      child: Container(
+                        padding: EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          currentCard,
+                          style: TextStyle(
+                            fontSize: 64,
+                            fontWeight: FontWeight.bold,
+                            color: _getCardColor(),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 32),
+                    // Rule description
+                    if (currentDescription.isNotEmpty)
+                      Container(
+                        padding: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 8,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          currentDescription,
+                          style: TextStyle(
+                            fontSize: 18,
+                            height: 1.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    SizedBox(height: 32),
+                    // Action buttons
+                    if (!isGameOver)
+                      ElevatedButton(
+                        onPressed: _drawCard,
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Text(
+                          'Draw Card',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      )
+                    else
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(30),
+                          ),
+                        ),
+                        child: Text(
+                          'Back to Main Menu',
+                          style: TextStyle(fontSize: 18),
+                        ),
+                      ),
+                    SizedBox(height: 16),
+                    // Kings counter
+                    if (!isGameOver)
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${4 - kingsDrawn} Kings remaining',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange.shade900,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
