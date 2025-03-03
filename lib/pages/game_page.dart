@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import '../models/player.dart';
 
 class GamePage extends StatefulWidget {
+  final List<Player> players;
+  
+  const GamePage({Key? key, required this.players}) : super(key: key);
+  
   @override
   _GamePageState createState() => _GamePageState();
 }
@@ -34,10 +39,17 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
   late AnimationController _animationController;
   late Animation<double> _scaleAnimation;
   
+  // Add player management
+  late Player currentPlayer;
+  int currentPlayerIndex = 0;
+  
+  bool isFirstTurn = true;
+  
   @override
   void initState() {
     super.initState();
     _initializeDeck();
+    currentPlayer = widget.players[0];
     _animationController = AnimationController(
       duration: Duration(milliseconds: 300),
       vsync: this,
@@ -75,6 +87,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
         _initializeDeck();
       } else {
         setState(() {
+          isFirstTurn = false;
           currentCard = deck.removeLast();
           currentDescription = cardDescriptions[currentCard.startsWith('10') ? '10' : currentCard[0]] ?? '';
           
@@ -85,6 +98,10 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
               currentDescription = 'GAME OVER! Down the Kings Cup!';
             }
           }
+          
+          // Move to next player
+          currentPlayerIndex = (currentPlayerIndex + 1) % widget.players.length;
+          currentPlayer = widget.players[currentPlayerIndex];
         });
       }
       _animationController.reverse();
@@ -105,7 +122,7 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Babelas'),
+        title: Text('Kings'),
         centerTitle: true,
         elevation: 0,
       ),
@@ -150,7 +167,18 @@ class _GamePageState extends State<GamePage> with SingleTickerProviderStateMixin
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    SizedBox(height: 20),
+                    // Only show player's turn if not first turn
+                    if (!isFirstTurn) ...[
+                      Text(
+                        '${currentPlayer.name}\'s Turn',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.orange.shade900,
+                        ),
+                      ),
+                      SizedBox(height: 20),
+                    ],
                     // Card display
                     ScaleTransition(
                       scale: _scaleAnimation,

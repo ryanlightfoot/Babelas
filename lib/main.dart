@@ -118,7 +118,7 @@ class FirstPage extends StatelessWidget {
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (context) => GamePage()),
+                            MaterialPageRoute(builder: (context) => PlayersPage(gameMode: 'kings')),
                           );
                         },
                         child: Row(

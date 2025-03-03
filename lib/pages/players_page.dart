@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/player.dart';
 import 'strip_game_page.dart';
 import 'crazy_game_page.dart';
+import 'game_page.dart';
 
 class PlayersPage extends StatefulWidget {
   final String gameMode;
@@ -114,7 +115,9 @@ class _PlayersPageState extends State<PlayersPage> {
                         MaterialPageRoute(
                           builder: (context) => widget.gameMode == 'crazy'
                               ? CrazyGamePage(players: players)
-                              : StripGamePage(players: players),
+                              : widget.gameMode == 'strip'
+                                  ? StripGamePage(players: players)
+                                  : GamePage(players: players),
                         ),
                       );
                     },
